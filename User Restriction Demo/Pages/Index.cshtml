@@ -1,0 +1,169 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "User Restriction on Annotations and Form Fields";
+    var originUrl = $"{Request.Scheme}://{Request.Host}{Request.PathBase}";
+    var document = originUrl + "/eSign_designMode.pdf";
+}
+
+<div class="container mt-4">
+    <h2>Annotation & Form Field User Restrictions</h2>
+
+    <div class="form-group mb-3">
+        <label for="userDropdown" class="form-label">Select User:</label>
+        <select id="userDropdown" class="form-select" onchange="onUserChanged()">
+            <option value="John" selected>John</option>
+            <option value="Alice">Alice</option>
+        </select>
+    </div>
+
+    <div id="userInfoPanel" style="display: none; margin-bottom: 15px;">
+        <div class="alert alert-info">
+            <strong>Current User:</strong> <span id="currentUserDisplay"></span>
+        </div>
+    </div>
+</div>
+
+<div style="height: 600px; margin: 10px;">
+    <ejs-pdfviewer id="pdfviewer" style="height:600px" documentPath=@document>
+    </ejs-pdfviewer>
+</div>
+
+<style>
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .form-label {
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+
+    .form-select {
+        padding: 8px 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    .alert-info {
+        padding: 12px 16px;
+        background-color: #e7f3ff;
+        border: 1px solid #b3d9ff;
+        border-radius: 4px;
+        margin: 0;
+    }
+</style>
+
+<script>
+    const users = {
+        'John': { id: 'john_id', color: '#FF6B6B' },
+        'Alice': { id: 'alice_id', color: '#4ECDC4' }
+    };
+
+    let currentUser = '';
+
+    function onUserChanged() {
+        const dropdown = document.getElementById('userDropdown');
+        currentUser = dropdown.value;
+        if (currentUser) {
+            document.getElementById('userInfoPanel').style.display = 'block';
+            document.getElementById('currentUserDisplay').textContent = currentUser;
+            updateViewerAuthorSettings(currentUser);
+            applyUserRestrictions(currentUser);
+        } else {
+            document.getElementById('userInfoPanel').style.display = 'none';
+            currentUser = '';
+        }
+    }
+
+    // Update viewer author settings
+    function updateViewerAuthorSettings(userName) {
+        const viewer = document.getElementById('pdfviewer').ej2_instances[0];
+        if (viewer && viewer.annotationSettings) {
+            viewer.annotationSettings.author = userName;
+        }
+        viewer.DropdownFieldSettings.customData = {
+            author: userName
+        }
+        viewer.checkBoxFieldSettings.customData = {
+            author: userName
+        }
+        viewer.radioButtonFieldSettings.customData = {
+            author: userName
+        }
+        viewer.signatureFieldSettings.customData = {
+            author: userName
+        }
+        viewer.listBoxFieldSettings.customData = {
+            author: userName
+        }
+        viewer.initialFieldSettings.customData = {
+            author: userName
+        }
+        viewer.passwordFieldSettings.customData = {
+            author: userName
+        }
+        viewer.textFieldSettings.customData = {
+            author: userName
+        }
+    }
+
+    // Apply user restrictions to existing annotations
+    function applyUserRestrictions(userName) {
+        const viewer = document.getElementById('pdfviewer').ej2_instances[0];
+        if (!viewer || !viewer.annotationCollection) {
+            return;
+        }
+        for (let i = 0; i < viewer.annotationCollection.length; i++) {
+            const annotation = viewer.annotationCollection[i];
+            if (annotation.annotationSettings) {
+                const annotationAuthor = annotation.author;
+                if (annotationAuthor && annotationAuthor !== userName) {
+                    annotation.annotationSettings.isLock = true;
+                    annotation.allowedInteractions = ['None'];
+                } else {
+                    annotation.annotationSettings.isLock = false;
+                }
+                if (viewer.annotation && viewer.annotation.editAnnotation) {
+                    viewer.annotation.editAnnotation(annotation);
+                }
+            }
+        }
+        applyFormFieldRestrictions(userName);
+    }
+
+    // Apply form field restrictions based on author
+    function applyFormFieldRestrictions(userName) {
+        const viewer = document.getElementById('pdfviewer').ej2_instances[0];
+        if (!viewer || !viewer.formFieldCollections) {
+            return;
+        }
+        let viewerIns = viewer;
+        viewer.formFieldCollections.forEach((field, index) => {
+            const fieldAuthor = field.customData?.author;
+            if (fieldAuthor && fieldAuthor !== userName) {
+                viewerIns.formDesignerModule.updateFormField(field, {
+                    isReadOnly: true
+                });
+            } else {
+                viewerIns.formDesignerModule.updateFormField(field, {
+                    isReadOnly: false
+                });
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const viewer = document.getElementById('pdfviewer');
+        if (viewer && viewer.ej2_instances && viewer.ej2_instances[0]) {
+            const pdfViewer = viewer.ej2_instances[0];
+            // Load John as default user
+            pdfViewer.documentLoad = () => {
+                onUserChanged();
+            };
+        }
+    });
+</script>
